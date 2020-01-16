@@ -1,0 +1,114 @@
+---
+title: "Price Sensitivity"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(pricesensitivitymeter) 
+library(readxl) # To read excell files
+library(ggplot2) # To create plots
+```
+
+```{r pressure, echo=FALSE}
+my_data <- data.frame(read.csv("my_data.csv"))
+```
+
+```{r BLEND, echo=FALSE}
+# Select the respective columns
+output <- psm_analysis(toocheap = my_data[,2], 
+                       cheap =  my_data[,3], 
+                       expensive =  my_data[,4],
+                       tooexpensive =  my_data[,5],
+                       interpolate =TRUE
+                       )
+
+summary(output)
+```
+
+```{r plot}
+psm_plot <-  function(output.psm, plot_title) {
+  psmplot <- ggplot(data = output.psm$data_vanwestendorp, aes(x = price)) +
+  annotate(geom = "rect", # shaded background area for range of acceptable prices
+           xmin = output.psm$pricerange_lower,
+           xmax = output.psm$pricerange_upper,
+           ymin = 0, ymax = Inf,
+           fill="grey50", alpha = 0.3) +
+  geom_line(aes(y = ecdf_toocheap, # line: too cheap
+                colour = "too cheap",
+                linetype = "too cheap"),
+            size= 1) +
+  geom_line(aes(y = ecdf_tooexpensive, # line: too expensive
+                colour = "too expensive",
+                linetype = "too expensive"),
+            size = 1) + 
+  geom_line(aes(y = ecdf_not_cheap, # line: not cheap
+                colour = "not cheap",
+                linetype = "not cheap"),
+            size = 1) +
+  geom_line(aes(y = ecdf_not_expensive, # line: not expensive
+                colour = "not expensive",
+                linetype = "not expensive"),
+            size = 1) + 
+  annotate(geom = "point", # Indifference Price Point (intersection of "cheap" and "expensive")
+           x = output.psm$idp, 
+           y = output.psm$data_vanwestendorp$ecdf_not_cheap[output.psm$data_vanwestendorp$price == output.psm$idp],
+           size = 3.5,
+           colour = "#6a6a6a") + 
+  annotate(geom = "point", # Optimal Price Point (intersection of "too cheap" and "too expensive")
+           x = output.psm$opp, 
+           y = output.psm$data_vanwestendorp$ecdf_toocheap[output.psm$data_vanwestendorp$price == output.psm$opp],
+           size = 3.5,
+           colour = "#6a6a6a") + 
+  annotate(geom = "point", # Point of Marginal Expensiveness (intersection of "not expensive" and "too expensive")
+           x = output.psm$pricerange_upper, 
+           y = output.psm$data_vanwestendorp$ecdf_not_expensive[output.psm$data_vanwestendorp$price == output.psm$pricerange_upper],
+           size = 3.5,
+           colour = "#6a6a6a") +
+  annotate(geom = "point", # Point of Marginal Cheapness (intersection of "not cheap" and "too cheap")
+           x = output.psm$pricerange_lower, 
+           y = output.psm$data_vanwestendorp$ecdf_not_cheap[output.psm$data_vanwestendorp$price == output.psm$pricerange_lower],
+           size = 3.5,
+           colour = "#6a6a6a") 
+
+
+# Labels and Colours
+psmplot +
+  labs(x = "Price",
+       y = "Share of Respondents (0-1)",
+       title = sprintf("%s\nPrice Sensitivity Meter - Van Westendorp Method", plot_title),
+       caption = "Shaded area: Range of acceptable prices\nOPP: Optimal Price Point\nIDP: Indifference Price Point\nPME: Point of Marginal Expensiveness\nPMC: Point of Marginal Cheapness")  + 
+  scale_colour_manual(name = "Legend",
+                      values = c("too cheap" = "#009E73",
+                                 "not cheap" = "#009E73",
+                                 "not expensive" = "#D55E00",
+                                 "too expensive" = "#D55E00")) + 
+  scale_linetype_manual(name="Legend",
+                        values = c("too cheap" = "dotted",
+                                   "not cheap" = "solid",
+                                   "not expensive" = "solid",
+                                   "too expensive" = "dotted")) + 
+  annotate(geom = "text", # Label of Indifference Price Point
+           x = output.psm$idp, 
+           y = output.psm$data_vanwestendorp$ecdf_not_cheap[output.psm$data_vanwestendorp$price == output.psm$idp] + 0.07,
+           label = paste("IDP ", output.psm$idp)) + 
+  annotate(geom = "text", # Label of Optimal Price Point
+           x = output.psm$opp,
+           y = output.psm$data_vanwestendorp$ecdf_toocheap[output.psm$data_vanwestendorp$price == output.psm$opp] - 0.05,
+           label = paste("OPP ", output.psm$opp)) +
+  annotate(geom = "text", # Label of Point of Marginal Expensiveness
+           x = output.psm$pricerange_upper + 12, 
+           y = output.psm$data_vanwestendorp$ecdf_not_expensive[output.psm$data_vanwestendorp$price == output.psm$pricerange_upper],
+           label = paste("PME ", output.psm$pricerange_upper)) +
+  annotate(geom = "text", # Label of Point of Marginal Cheapness
+           x = output.psm$pricerange_lower - 11, 
+           y = output.psm$data_vanwestendorp$ecdf_not_cheap[output.psm$data_vanwestendorp$price == output.psm$pricerange_lower],
+           label = paste("PMC ", output.psm$pricerange_lower)) +
+  theme_minimal()
+}
+```
+
+```{r BLEND, echo=FALSE}
+psm_plot(output, "MY PLOT")
+```
